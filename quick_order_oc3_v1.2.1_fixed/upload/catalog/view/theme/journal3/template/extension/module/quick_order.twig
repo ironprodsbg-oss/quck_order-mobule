@@ -1,0 +1,243 @@
+<div class="panel panel-default" id="quick-order-panel" style="--qo-btn-color: {{ button_color }};">
+	<div class="panel-heading text-{{ title_align|default('left') }}">
+	  <strong>{{ form_title }}</strong>
+	</div>
+
+
+  <div class="panel-body">
+    {# TOP NOTE / CONTENT (text or image) #}
+    {% if content_type == 'image' and content_image %}
+      <div class="quick-order-image-content" style="margin-bottom:10px;">
+        <img src="{{ content_image }}" class="img-responsive" alt="">
+      </div>
+    {% elseif description %}
+      <div class="alert alert-info" style="margin-bottom:10px;">{{ description }}</div>
+    {% elseif text_note %}
+      <div class="alert alert-info" style="margin-bottom:10px;">{{ text_note }}</div>
+    {% endif %}
+
+    {# NAME #}
+    {% if field_name_status %}
+      <div class="form-group{% if field_name_required %} required{% endif %}">
+        <label class="control-label" for="qo-name">
+          {{ entry_name }}{% if field_name_required %} *{% endif %}
+        </label>
+        <input
+          type="text"
+          id="qo-name"
+          class="form-control"
+          placeholder="{{ entry_name }}"
+          value="{{ default_name|e }}"
+          {% if field_name_required %}required{% endif %}
+        >
+        <div class="text-danger" id="qo-name-error" style="display:none;"></div>
+      </div>
+    {% endif %}
+
+    {# EMAIL #}
+    {% if field_email_status %}
+      <div class="form-group{% if field_email_required %} required{% endif %}">
+        <label class="control-label" for="qo-email">
+          {{ entry_email }}{% if field_email_required %} *{% endif %}
+        </label>
+        <input
+          type="email"
+          id="qo-email"
+          class="form-control"
+          placeholder="{{ entry_email }}"
+          value="{{ default_email|e }}"
+          {% if field_email_required %}required{% endif %}
+        >
+        <div class="text-danger" id="qo-email-error" style="display:none;"></div>
+      </div>
+    {% endif %}
+
+    {# TELEPHONE #}
+    {% if field_telephone_status %}
+      <div class="form-group{% if field_telephone_required %} required{% endif %}">
+        <label class="control-label" for="qo-telephone">
+          {{ entry_telephone }}{% if field_telephone_required %} *{% endif %}
+        </label>
+        <input
+          type="text"
+          id="qo-telephone"
+          class="form-control"
+          placeholder="{{ entry_telephone }}"
+          value="{{ default_telephone|e }}"
+          {% if field_telephone_required %}required{% endif %}
+        >
+        <div class="text-danger" id="qo-telephone-error" style="display:none;"></div>
+      </div>
+    {% endif %}
+
+    {# QUANTITY #}
+    {% if field_quantity_status %}
+      <div class="form-group">
+        <label class="control-label" for="qo-quantity">{{ entry_quantity }}</label>
+        <input type="number" id="qo-quantity" class="form-control" min="1" max="99" value="1">
+        <div class="text-danger" id="qo-quantity-error" style="display:none;"></div>
+      </div>
+    {% endif %}
+
+    {# COMMENT #}
+    {% if field_comment_status %}
+      <div class="form-group{% if field_comment_required %} required{% endif %}">
+        <label class="control-label" for="qo-comment">
+          {{ entry_comment }}{% if field_comment_required %} *{% endif %}
+        </label>
+        <textarea
+          id="qo-comment"
+          class="form-control"
+          rows="3"
+          placeholder="{{ entry_comment }}"
+          {% if field_comment_required %}required{% endif %}
+        ></textarea>
+        <div class="text-danger" id="qo-comment-error" style="display:none;"></div>
+      </div>
+    {% endif %}
+
+    {% set style = button_style|default('custom') %}
+
+    {% if style == 'theme' %}
+      {% set qo_btn_class = 'btn btn-primary qo-btn' %}
+    {% elseif style == 'outline' %}
+      {% set qo_btn_class = 'btn qo-btn qo-btn-outline' %}
+    {% else %}
+      {% set qo_btn_class = 'btn qo-btn qo-btn-custom' %}
+    {% endif %}
+
+    <button type="button" id="qo-submit" class="{{ qo_btn_class }}">
+      <span class="qo-btn-text">{{ button_submit }}</span>
+      <span class="qo-btn-loading" style="display:none;">{{ text_sending }}</span>
+    </button>
+
+    <div class="alert alert-success" id="qo-success" style="display:none;margin-top:10px;"></div>
+    <div class="alert alert-danger" id="qo-error" style="display:none;margin-top:10px;"></div>
+  </div>
+</div>
+<style>
+@media (max-width: 767.98px) {
+  #quick-order-panel .quick-order-image-content {
+    display: none !important;
+  }
+}
+</style>
+
+<script>
+(function() {
+  var btn = document.getElementById('qo-submit');
+  if (!btn) return;
+
+  function show(el, msg) { if (!el) return; el.style.display='block'; el.innerHTML = msg || ''; }
+  function hide(el) { if (!el) return; el.style.display='none'; el.innerHTML=''; }
+
+  function setLoading(isLoading) {
+    var t = btn.querySelector('.qo-btn-text');
+    var l = btn.querySelector('.qo-btn-loading');
+    if (t) t.style.display = isLoading ? 'none' : 'inline';
+    if (l) l.style.display = isLoading ? 'inline' : 'none';
+    btn.disabled = !!isLoading;
+  }
+
+  function getUtm(name) {
+    try {
+      var u = new URL(window.location.href);
+      return u.searchParams.get(name) || '';
+    } catch(e) { return ''; }
+  }
+
+  function collectOptions() {
+    var options = {};
+    var form = document.getElementById('product') || document.querySelector('form#product') || document.querySelector('form[action*="checkout/cart/add"]');
+    if (!form) return '';
+
+    var els = form.querySelectorAll('input[name^="option["], select[name^="option["], textarea[name^="option["]');
+    els.forEach(function(el){
+      if ((el.type === 'radio' || el.type === 'checkbox') && !el.checked) return;
+
+      var name = el.name;
+      var val = el.value;
+
+      if (name.endsWith('[]')) {
+        if (!options[name]) options[name] = [];
+        options[name].push(val);
+      } else {
+        options[name] = val;
+      }
+    });
+
+    if (Object.keys(options).length === 0) return '';
+    try { return JSON.stringify(options); } catch(e) { return ''; }
+  }
+
+  btn.addEventListener('click', function() {
+    var nameEl = document.getElementById('qo-name');
+    var emailEl = document.getElementById('qo-email');
+    var telEl = document.getElementById('qo-telephone');
+    var qtyEl = document.getElementById('qo-quantity');
+    var commentEl = document.getElementById('qo-comment');
+
+    var nameErr = document.getElementById('qo-name-error');
+    var emailErr = document.getElementById('qo-email-error');
+    var telErr = document.getElementById('qo-telephone-error');
+    var qtyErr = document.getElementById('qo-quantity-error');
+    var commentErr = document.getElementById('qo-comment-error');
+
+    var okMsg = document.getElementById('qo-success');
+    var errMsg = document.getElementById('qo-error');
+
+    hide(nameErr); hide(emailErr); hide(telErr); hide(qtyErr); hide(commentErr); hide(okMsg); hide(errMsg);
+
+    var fd = new FormData();
+    fd.append('product_id', '{{ product_id }}');
+
+    // If field is hidden, element won't exist => send empty
+    fd.append('name', nameEl ? nameEl.value : '');
+    fd.append('email', emailEl ? emailEl.value : '');
+    fd.append('telephone', telEl ? telEl.value : '');
+
+    // If quantity hidden => send 1
+    fd.append('quantity', qtyEl ? qtyEl.value : '1');
+
+    fd.append('comment', commentEl ? commentEl.value : '');
+    fd.append('options', collectOptions());
+
+    fd.append('referer', document.referrer || '');
+    fd.append('utm_source', getUtm('utm_source'));
+    fd.append('utm_medium', getUtm('utm_medium'));
+    fd.append('utm_campaign', getUtm('utm_campaign'));
+    fd.append('utm_content', getUtm('utm_content'));
+    fd.append('utm_term', getUtm('utm_term'));
+
+    setLoading(true);
+
+    fetch('{{ action }}', { method: 'POST', body: fd, credentials: 'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        setLoading(false);
+
+        if (j.success) {
+          show(okMsg, j.success);
+          if (commentEl) commentEl.value = '';
+          return;
+        }
+
+        // General / product errors
+        if (j.error) show(errMsg, j.error);
+        if (j.error_warning) show(errMsg, j.error_warning);
+        if (j.error_product) show(errMsg, j.error_product);
+
+        // Field errors (only show if elements exist)
+        if (j.error_name) show(nameErr, j.error_name);
+        if (j.error_email) show(emailErr, j.error_email);
+        if (j.error_telephone) show(telErr, j.error_telephone);
+        if (j.error_quantity) show(qtyErr, j.error_quantity);
+        if (j.error_comment) show(commentErr, j.error_comment);
+      })
+      .catch(function(){
+        setLoading(false);
+        show(errMsg, 'Error');
+      });
+  });
+})();
+</script>
