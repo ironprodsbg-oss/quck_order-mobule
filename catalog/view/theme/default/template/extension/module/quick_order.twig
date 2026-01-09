@@ -1,0 +1,56 @@
+<div class="quick-order-module">
+  <h3>{{ title }}</h3>
+  <form action="{{ action }}" method="post" class="form" data-quick-order>
+    <div class="form-group">
+      <label for="quick-order-name">{{ text_name }}</label>
+      <input type="text" name="name" id="quick-order-name" class="form-control" />
+    </div>
+    <div class="form-group">
+      <label for="quick-order-phone">{{ text_phone }}</label>
+      <input type="text" name="phone" id="quick-order-phone" class="form-control" />
+    </div>
+    <div class="form-group">
+      <label for="quick-order-comment">{{ text_comment }}</label>
+      <textarea name="comment" id="quick-order-comment" class="form-control"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">{{ text_submit }}</button>
+    <div class="quick-order-message" style="margin-top: 10px;"></div>
+  </form>
+</div>
+<script>
+  (function () {
+    var form = document.querySelector('[data-quick-order]');
+    if (!form) {
+      return;
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      var formData = new FormData(form);
+      var message = form.querySelector('.quick-order-message');
+
+      fetch(form.getAttribute('action'), {
+        method: 'POST',
+        body: formData
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.error) {
+            message.textContent = data.error;
+            message.className = 'quick-order-message text-danger';
+          } else if (data.success) {
+            message.textContent = data.success;
+            message.className = 'quick-order-message text-success';
+            form.reset();
+          }
+        })
+        .catch(function () {
+          message.textContent = '{{ success_message }}';
+          message.className = 'quick-order-message text-success';
+        });
+    });
+  })();
+</script>
